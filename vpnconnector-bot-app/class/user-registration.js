@@ -222,6 +222,7 @@ class UserRegistration {
         await ctx.sendChatAction('typing');
 
         ctx.session.price_type = priceType;
+        const randomInt = await this.getRandomInt(10, 50);
         let price = 0;
         price = priceType == 'card_price_1' ? ctx.session.card_price_1 : price;
         price = priceType == 'card_price_6' ? ctx.session.card_price_6 : price;
@@ -229,9 +230,9 @@ class UserRegistration {
         price = priceType == 'star_price_1' ? ctx.session.star_price_1 : price;
         price = priceType == 'star_price_6' ? ctx.session.star_price_6 : price;
         price = priceType == 'star_price_12' ? ctx.session.star_price_12 : price;
-        price = priceType == 'crypto_price_1' ? ctx.session.crypto_price_1 : price + '.' + await this.getRandomInt(10, 50);
-        price = priceType == 'crypto_price_6' ? ctx.session.crypto_price_6 : price + '.' + await this.getRandomInt(10, 50);
-        price = priceType == 'crypto_price_12' ? ctx.session.crypto_price_12 : price + '.' + await this.getRandomInt(10, 50);
+        price = priceType == 'crypto_price_1' ? ctx.session.crypto_price_1 + '.' + randomInt : price;
+        price = priceType == 'crypto_price_6' ? ctx.session.crypto_price_6 + '.' + randomInt : price;
+        price = priceType == 'crypto_price_12' ? ctx.session.crypto_price_12 + '.' + randomInt : price;
         ctx.session.price = price;
         let period = priceType == 'card_price_1' || priceType == 'star_price_1' || priceType == 'crypto_price_1'
             ? '1 месяц' : '';
@@ -577,22 +578,22 @@ class UserRegistration {
         ctx.session.payment_number = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'payment_number')?.meta_value : null;
         ctx.session.bank_name = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'bank_name')?.meta_value : null;
         ctx.session.receiver_name = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'receiver_name')?.meta_value : null;
-        ctx.session.card_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value : 0;
-        ctx.session.card_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value : 0;
-        ctx.session.card_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value : 0;
+        ctx.session.card_price_1 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value : 0;
+        ctx.session.card_price_6 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value : 0;
+        ctx.session.card_price_12 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value : 0;
 
         ctx.session.payment_type_star = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_star')?.meta_value : null;
-        ctx.session.star_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value : 0;
-        ctx.session.star_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value : 0;
-        ctx.session.star_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value : 0;
+        ctx.session.star_price_1 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value : 0;
+        ctx.session.star_price_6 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value : 0;
+        ctx.session.star_price_12 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value : 0;
 
         ctx.session.payment_type_crypto = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_crypto')?.meta_value : null;
         ctx.session.crypto_wallet = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_wallet')?.meta_value : null;
         ctx.session.crypto_currency = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_currency')?.meta_value : null;
         ctx.session.crypto_network = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_network')?.meta_value : null;
-        ctx.session.crypto_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_1')?.meta_value : 0;
-        ctx.session.crypto_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_6')?.meta_value : 0;
-        ctx.session.crypto_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_12')?.meta_value : 0;
+        ctx.session.crypto_price_1 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'crypto_price_1')?.meta_value : 0;
+        ctx.session.crypto_price_6 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'crypto_price_6')?.meta_value : 0;
+        ctx.session.crypto_price_12 = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'crypto_price_12')?.meta_value : 0;
 
         ctx.session.notification_chat_id = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
     }

@@ -68,6 +68,10 @@ class CallbackQuery {
             }
         }
 
+        if (callbackData.action === 'remove_settings_payment_card') {
+            return await this._settingsService.removeSettingsPaymentCard(callbackData.serviceId, ctx);
+        }
+
         if (callbackData.action === 'settings_payment_stars') {
             return await this._settingsService.settingsPaymentStars(ctx);
         }
@@ -89,6 +93,10 @@ class CallbackQuery {
             }
         }
 
+        if (callbackData.action === 'remove_settings_payment_stars') {
+            return await this._settingsService.removeSettingsPaymentStars(callbackData.serviceId, ctx);
+        }
+
         if (callbackData.action === 'settings_payment_crypto') {
             return await this._settingsService.settingsWalletCrypto(ctx);
         }
@@ -108,6 +116,10 @@ class CallbackQuery {
                 );
                 return await this._settingsService.settingsUp(ctx.session.service_id, ctx);
             }
+        }
+
+        if (callbackData.action === 'remove_settings_payment_crypto') {
+            return await this._settingsService.removeSettingsPaymentCrypto(callbackData.serviceId, ctx);
         }
 
         if (callbackData.action === 'settings_back') {

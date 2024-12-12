@@ -148,16 +148,16 @@ class SettingsService {
         const keyboard = [
             [
                 Markup.button.callback('💳 На карту', JSON.stringify({ action: 'settings_payment_card' })),
-                Markup.button.callback('💳 Удалить способ', JSON.stringify({ action: 'remove_settings_payment_card' }))
+                Markup.button.callback('💳 Отключить способ', JSON.stringify({ action: 'remove_settings_payment_card', serviceId: serviceId }))
             ]
         ];
         keyboard.push([
             Markup.button.callback('⭐️ Звезды Telegram', JSON.stringify({ action: 'settings_payment_stars' })),
-            Markup.button.callback('⭐️ Удалить способ', JSON.stringify({ action: 'remove_settings_payment_stars' }))
+            Markup.button.callback('⭐️ Отключить способ', JSON.stringify({ action: 'remove_settings_payment_stars', serviceId: serviceId }))
         ]);
         keyboard.push([
             Markup.button.callback('💰 Крипто кошелек', JSON.stringify({ action: 'settings_payment_crypto' })),
-            Markup.button.callback('💰 Удалить способ', JSON.stringify({ action: 'remove_settings_payment_crypto' }))
+            Markup.button.callback('💰 Отключить способ', JSON.stringify({ action: 'remove_settings_payment_crypto', serviceId: serviceId }))
         ]);
 
         let sentMessage = await ctx.reply(
@@ -751,6 +751,69 @@ class SettingsService {
         if (ctx.session.step == 'settings_crypto_price_6') {
             return this.settingsCryptoPrice6(ctx);
         }
+    }
+
+    async removeSettingsPaymentCard(serviceId, ctx) {
+        try {
+            ctx.answerCbQuery('Загрузка...');
+        } catch (error) { }
+
+        if(!serviceId) return;
+
+        const dataServiceMeta = {
+            service_id: serviceId,
+            meta_key: 'payment_type_card',
+            meta_value: 0,
+        };
+        await this._dbRequests.updateOrInsertServiceMeta(dataServiceMeta);
+
+        await this._bot.telegram.sendMessage(
+            ctx.update.callback_query.from.id,
+            `✅ <b>Платежи через перевод на карту - отключены!</b>`,
+            { parse_mode: "HTML" }
+        );
+    }
+
+    async removeSettingsPaymentCrypto(serviceId, ctx) {
+        try {
+            ctx.answerCbQuery('Загрузка...');
+        } catch (error) { }
+
+        if(!serviceId) return;
+
+        const dataServiceMeta = {
+            service_id: serviceId,
+            meta_key: 'payment_type_crypto',
+            meta_value: 0,
+        };
+        await this._dbRequests.updateOrInsertServiceMeta(dataServiceMeta);
+
+        await this._bot.telegram.sendMessage(
+            ctx.update.callback_query.from.id,
+            `✅ <b>Платежи через перевод на крипто кошелек - отключены!</b>`,
+            { parse_mode: "HTML" }
+        );
+    }
+
+    async removeSettingsPaymentStars(serviceId, ctx) {
+        try {
+            ctx.answerCbQuery('Загрузка...');
+        } catch (error) { }
+
+        if(!serviceId) return;
+
+        const dataServiceMeta = {
+            service_id: serviceId,
+            meta_key: 'payment_type_star',
+            meta_value: 0,
+        };
+        await this._dbRequests.updateOrInsertServiceMeta(dataServiceMeta);
+
+        await this._bot.telegram.sendMessage(
+            ctx.update.callback_query.from.id,
+            `✅ <b>Платежи через звезды Telegram - отключены!</b>`,
+            { parse_mode: "HTML" }
+        );
     }
 }
 
