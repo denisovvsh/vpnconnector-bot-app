@@ -1,7 +1,7 @@
 services:
   vpnconnector-bot:
     image: node:20
-    restart: on-failure:3
+    restart: always
     container_name: vpnconnector-bot-app
     entrypoint: [ "/entrypoint.sh" ]
     volumes:
@@ -13,7 +13,7 @@ services:
 
   mysql-server:
     image: mysql:8.0.19
-    restart: on-failure:3
+    restart: always
     container_name: mysql-server
     env_file:
       - ./.env
@@ -24,7 +24,7 @@ services:
     build:
       dockerfile: phpmyadmin.Dockerfile
       context: .
-    restart: on-failure:3
+    restart: always
     container_name: phpmyadmin-server
     env_file:
       - ./.env

@@ -80,7 +80,7 @@ class CronAssistant {
                     ]
                 ];
                 await this._bot.telegram.sendMessage(
-                    item.user_tg_id,
+                    billingRow.user_tg_id,
                     `🟠 Заканчивается подписка на VPN`
                     + `\n<blockquote>Действительна до <b>${billingRow.billing_date_to}</b></blockquote>`,
                     {
