@@ -21,49 +21,59 @@ class UserRegistration {
         } catch (error) { }
         await ctx.sendChatAction('typing');
 
-        ctx.session = null;
-        const adminSubscribePrice = await this._dbRequests.getAdminSubscribePrice();
-        const chatsByUserId = await this._dbRequests.getChats();
-        const chats = chatsByUserId && adminSubscribePrice?.manager_chat_id
-            ? chatsByUserId.filter(item => adminSubscribePrice?.manager_chat_id != item.chat_tg_id && item.type == 'service')
-            : false;
+        let user = await this._dbRequests.getUserByUserTgId(ctx.from.id);
+        const userData = {
+            user_tg_id: user?.user_tg_id ?? ctx.from.id,
+            first_name: user?.first_name ?? ctx.from.first_name ?? '',
+            last_name: user?.last_name ?? ctx.from.last_name ?? '',
+            username: user?.username ?? ctx.from.username ?? '',
+            phone: user?.phone ?? '',
+            language_code: user?.language_code ?? ctx.from.language_code,
+            is_bot: user?.is_bot ?? ctx.from.is_bot,
+            is_premium: ctx.from.is_premium ?? 0,
+            is_active: user?.is_active ?? 1
+        };
+        await this._dbRequests.updateOrInsertUser(userData);
 
-        if (!chats || chats.length <= 0) {
-            return await ctx.reply(`🔵 <b>Сервис VPN не найден!</b>`, { parse_mode: 'HTML' });
+        const services = await this._dbRequests.getServices();
+        if (!services) {
+            const keyboard = [];
+            if (ctx.from.id == process.env.BOT_OWNER_ID) {
+                keyboard.push([Markup.button.callback('Добавить сервис VPN', JSON.stringify({ action: 'add_service_vpn' }))]);
+            }
+            return await ctx.reply(
+                `🔵 <b>Сервис VPN не найден!</b>`,
+                {
+                    parse_mode: 'HTML',
+                    ...Markup.inlineKeyboard(keyboard)
+                }
+            );
         }
 
-        for (let chatItem of chats) {
-            const admin = await this._dbRequests.getAdminByChatTgId(chatItem.chat_tg_id);
-            const chatMeta = await this._dbRequests.getChatMeta(chatItem.id);
-            if (!chatMeta) continue;
-            await this._sendMessages.sendMessageAboutChat(chatItem, chatMeta, admin, ctx);
+        for (let serviceItem of services) {
+            await this._sendMessages.sendMessageAboutService(serviceItem, ctx);
         }
 
         return;
     }
 
-    async subscribe(chatId, ctx) {
+    async subscribe(serviceId, ctx) {
         try {
             ctx.answerCbQuery('Загрузка...');
         } catch (error) { }
         await ctx.sendChatAction('typing');
 
-        const billingData = await this._dbRequests.getBillingByChatIdAndUserTgId(chatId, ctx.from.id);
+        const billingData = await this._dbRequests.getBillingByServiceIdAndUserTgId(serviceId, ctx.from.id);
         const targetDate = new Date(billingData.date_to);
         const currentDate = new Date();
-
         if (currentDate < targetDate) {
             const keyboard = [];
-            const admin = await this._dbRequests.getAdminByChatTgId(billingData.chat_tg_id)
-            const billingAdmin = await this._dbRequests.getBillingAdminsByUserId(admin.user_id);
-            if (+billingAdmin.status) {
-                keyboard.push([
-                    Markup.button.callback(
-                        'Продлить подписку',
-                        JSON.stringify({ action: 'update_service_subscribe', chatId: chatId })
-                    )
-                ]);
-            }
+            keyboard.push([
+                Markup.button.callback(
+                    'Продлить подписку',
+                    JSON.stringify({ action: 'update_service_subscribe', serviceId: serviceId })
+                )
+            ]);
             return await this._bot.telegram.sendMessage(
                 ctx.from.id,
                 `🔵 Ваша подписка на VPN\n<blockquote>Действительна до <b>${billingData.billing_date_to}</b></blockquote>`,
@@ -75,16 +85,15 @@ class UserRegistration {
         }
 
         if (!ctx.session) ctx.session = {};
-        const chat = await this._dbRequests.getChatById(chatId);
-        ctx.session.srvice = true;
-        ctx.session.chat_id = chat ? chat.id : null;
-        ctx.session.username = ctx.from.username || 'no_username';
+        const service = await this._dbRequests.getServiceById(serviceId);
+        ctx.session.service_id = service ? service.id : null;
+        ctx.session.username = ctx.from.username || '';
         ctx.session.surname = ctx.from.last_name;
         ctx.session.name = ctx.from.first_name;
 
-        await this.creaeteChatMetaSession(chat.id, ctx);
+        await this.creaeteServiceMetaSession(service.id, ctx);
 
-        if (!ctx.session.payment_type_star && !ctx.session.payment_type_card) {
+        if (!ctx.session.payment_type_star && !ctx.session.payment_type_card && !ctx.session.payment_type_crypto) {
             return await ctx.reply(
                 `🟠 <b>Данный сервис не имеет настроенных цен за подписку!</b>`,
                 { parse_mode: 'HTML' }
@@ -105,7 +114,7 @@ class UserRegistration {
         ctx.session.step = 'contact';
     }
 
-    async getInvoiceUpdateSubscribe(chatId, ctx) {
+    async getInvoiceUpdateSubscribe(serviceId, ctx) {
         try {
             ctx.answerCbQuery('Загрузка...');
         } catch (error) { }
@@ -113,19 +122,18 @@ class UserRegistration {
 
         const user = await this._dbRequests.getUserByUserTgId(ctx.from.id, ctx);
 
-        ctx.session.srvice = true;
-        ctx.session.username = ctx.from.username || 'no_username';
+        ctx.session.username = ctx.from.username || '';
         ctx.session.surname = ctx.from.last_name;
         ctx.session.name = ctx.from.first_name;
         ctx.session.phone = user.phone ?? '';
-        ctx.session.chat_id = chatId;
+        ctx.session.service_id = serviceId;
         ctx.session.is_update_subscribe = 1;
         ctx.session.payment_id = new Date().getTime();
         ctx.session.user_id = user.id;
 
-        await this.creaeteChatMetaSession(chatId, ctx);
+        await this.creaeteServiceMetaSession(serviceId, ctx);
 
-        if (!ctx.session.payment_type_star && !ctx.session.payment_type_card) {
+        if (!ctx.session.payment_type_star && !ctx.session.payment_type_card && !ctx.session.payment_type_crypto) {
             return await ctx.reply(
                 `🟠 <b>VPN не имеет настроенных цен за подписку!</b>`,
                 { parse_mode: 'HTML' }
@@ -162,7 +170,7 @@ class UserRegistration {
             user_tg_id: ctx.from.id,
             first_name: ctx.from.first_name ?? '',
             last_name: ctx.from.last_name ?? '',
-            username: ctx.from.username ?? 'no_username',
+            username: ctx.from.username ?? '',
             phone: ctx.session.phone,
             language_code: ctx.from.language_code,
             is_bot: ctx.from.is_bot,
@@ -213,7 +221,6 @@ class UserRegistration {
         }
         await ctx.sendChatAction('typing');
 
-        ctx.session.srvice = true;
         ctx.session.price_type = priceType;
         let price = 0;
         price = priceType == 'card_price_1' ? ctx.session.card_price_1 : price;
@@ -222,14 +229,20 @@ class UserRegistration {
         price = priceType == 'star_price_1' ? ctx.session.star_price_1 : price;
         price = priceType == 'star_price_6' ? ctx.session.star_price_6 : price;
         price = priceType == 'star_price_12' ? ctx.session.star_price_12 : price;
+        price = priceType == 'crypto_price_1' ? ctx.session.crypto_price_1 : price + '.' + await this.getRandomInt(10, 50);
+        price = priceType == 'crypto_price_6' ? ctx.session.crypto_price_6 : price + '.' + await this.getRandomInt(10, 50);
+        price = priceType == 'crypto_price_12' ? ctx.session.crypto_price_12 : price + '.' + await this.getRandomInt(10, 50);
         ctx.session.price = price;
-        let period = priceType == 'card_price_1' || priceType == 'star_price_1' ? '1 месяц' : '';
-        period = priceType == 'card_price_6' || priceType == 'star_price_6' ? '6 месяцев' : period;
-        period = priceType == 'card_price_12' || priceType == 'star_price_12' ? '12 месяцев' : period;
+        let period = priceType == 'card_price_1' || priceType == 'star_price_1' || priceType == 'crypto_price_1'
+            ? '1 месяц' : '';
+        period = priceType == 'card_price_6' || priceType == 'star_price_6' || priceType == 'crypto_price_6'
+            ? '6 месяцев' : period;
+        period = priceType == 'card_price_12' || priceType == 'star_price_12' || priceType == 'crypto_price_12'
+            ? '12 месяцев' : period;
 
         const dataTransaction = {
             user_id: ctx.session.user_id,
-            chat_id: ctx.session.chat_id,
+            service_id: ctx.session.service_id,
             price: price,
             status: 0,
             price_type: priceType,
@@ -237,8 +250,6 @@ class UserRegistration {
             is_update_subscribe: ctx.session.is_update_subscribe ?? 0
         };
         await this._dbRequests.updateOrInsertTransactions(dataTransaction);
-
-        const chat = await this._dbRequests.getChatById(ctx.session.chat_id);
 
         if (ctx.session.payment_type_card == 1 && priceType.startsWith('card_price_')) {
             ctx.session.currency = '₽';
@@ -257,7 +268,7 @@ class UserRegistration {
             ctx.session.step = 'confirm_payment_transfer';
 
             let message = `<b>Оплата подписки</b>\n`;
-            message = `Оплата сервиса: <b>${chat.title}</b>\nСрок подписки: <b>${period}</b>\n\n`;
+            message = `Оплата сервиса VPN\nСрок подписки: <b>${period}</b>\n\n`;
             message += `🔵 <b>Оплатите по реквизитам карты:</b>\n\n`;
             message += `<b>Сумма к оплате:</b> ${ctx.session.price}${ctx.session.currency}\n`;
             message += `<b>${card_number_title}:</b> <pre>${payment_number}</pre> (нажмите на номер, чтобы скопировать)\n`;
@@ -267,8 +278,32 @@ class UserRegistration {
             }
             message += `<blockquote>☝️<b>После оплаты отправьте скриншот квитанции.</b></blockquote>`;
 
-            await ctx.replyWithHTML(message);
+            await ctx.reply(message, { parse_mode: 'HTML' });
+            await ctx.reply(
+                `🔵 <b>После проверки платежа менеджер подтвердит оплату и Вы получите уведомление.</b>`,
+                { parse_mode: 'HTML' }
+            );
+        } else if (ctx.session.payment_type_crypto == 1 && priceType.startsWith('crypto_price_')) {
+            ctx.session.currency = ctx.session.crypto_currency;
+            ctx.session.step = 'confirm_payment_transfer';
 
+            let message = `<b>Оплата подписки</b>\n`;
+            message = `Оплата сервиса VPN\nСрок подписки: <b>${period}</b>\n\n`;
+            message += `🔵 <b>Оплатите по реквизитам карты:</b>\n\n`;
+            message += `<b>Сумма к оплате:</b> ${ctx.session.price} ${ctx.session.currency}\n`;
+            message += `<b>Адрес крипто кошелька получателя:</b> <pre>${ctx.session.crypto_wallet}</pre> (нажмите на адрес, чтобы скопировать)\n`;
+            message += `<b>Идентификатор сети:</b> ${ctx.session.crypto_network}\n`;
+            message += `<blockquote>☝️<b>После оплаты нажмите кнопку подтвердить.</b></blockquote>`;
+
+            await ctx.reply(
+                message,
+                {
+                    parse_mode: 'HTML',
+                    ...Markup.inlineKeyboard([
+                        [Markup.button.callback('Подтвердить оплату', JSON.stringify({ action: 'apply_crypto_transaction', paymentId: ctx.session.payment_id }))]
+                    ])
+                }
+            );
             await ctx.reply(
                 `🔵 <b>После проверки платежа менеджер подтвердит оплату и Вы получите уведомление.</b>`,
                 { parse_mode: 'HTML' }
@@ -277,7 +312,7 @@ class UserRegistration {
             ctx.session.currency = '⭐️';
             const invoice = {
                 title: `Оплата подписки`,
-                description: `Оплата сервиса: ${chat.title}. Срок подписки: ${period}.`,
+                description: `Оплата сервиса VPN. Срок подписки: ${period}.`,
                 payload: 'successful_' + ctx.chat.id,
                 provider_token: '',
                 start_parameter: 'purchase_' + ctx.chat.id,
@@ -298,6 +333,12 @@ class UserRegistration {
         return;
     }
 
+    async getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
     async successfulPayment(paymentId, ctx) {
         try {
             ctx.answerCbQuery('Загрузка...');
@@ -307,7 +348,7 @@ class UserRegistration {
         const transactionData = await this._dbRequests.getTransactionByPaymentId(paymentId);
         const dataTransaction = {
             user_id: transactionData.user_id,
-            chat_id: transactionData.chat_id,
+            service_id: transactionData.service_id,
             price: transactionData.price,
             status: 1,
             price_type: transactionData.price_type,
@@ -317,8 +358,8 @@ class UserRegistration {
         await this._dbRequests.updateOrInsertTransactions(dataTransaction);
 
         const user = await this._dbRequests.getUserById(transactionData.user_id);
-        const chatMeta = await this._dbRequests.getChatMeta(transactionData.chat_id);
-        const notificationChatId = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
+        const serviceMeta = await this._dbRequests.getServiceMeta(transactionData.service_id);
+        const notificationChatId = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
         if (+transactionData.status) {
             return await this._bot.telegram.sendMessage(
                 notificationChatId,
@@ -327,54 +368,47 @@ class UserRegistration {
             );
         }
 
-        let dateFrom = await this.getDateWithMonthsOffset();
-        let periodnumMonth = transactionData.price_type == 'card_price_1' || transactionData.price_type == 'star_price_1'
+        let dateFrom = await this._attributes.getDateWithMonthsOffset();
+        let periodnumMonth = transactionData.price_type == 'card_price_1' || transactionData.price_type == 'star_price_1' || transactionData.price_type == 'crypto_price_1'
             ? 1 : 0;
-        periodnumMonth = transactionData.price_type == 'card_price_6' || transactionData.price_type == 'star_price_6'
+        periodnumMonth = transactionData.price_type == 'card_price_6' || transactionData.price_type == 'star_price_6' || transactionData.price_type == 'crypto_price_6'
             ? 6 : periodnumMonth;
-        periodnumMonth = transactionData.price_type == 'card_price_12' || transactionData.price_type == 'star_price_12'
+        periodnumMonth = transactionData.price_type == 'card_price_12' || transactionData.price_type == 'star_price_12' || transactionData.price_type == 'crypto_price_12'
             ? 12 : periodnumMonth;
-        let dateTo = await this.getDateWithMonthsOffset(periodnumMonth);
+        let dateTo = await this._attributes.getDateWithMonthsOffset(periodnumMonth);
 
-        const billingByUser = await this._dbRequests.getBillingByChatIdAndUserTgId(transactionData.chat_id, user.user_tg_id);
+        const billingByUser = await this._dbRequests.getBillingByServiceIdAndUserTgId(transactionData.service_id, user.user_tg_id);
         if (transactionData.is_update_subscribe && +billingByUser.status) {
             dateFrom = billingByUser.date_from;
-            dateTo = await this.getDateWithMonthsOffset(periodnumMonth, billingByUser.date_to);
+            dateTo = await this._attributes.getDateWithMonthsOffset(periodnumMonth, billingByUser.date_to);
         }
 
         const dataBilling = {
             user_id: transactionData.user_id,
-            chat_id: transactionData.chat_id,
+            service_id: transactionData.service_id,
             status: 1,
             date_from: dateFrom,
             date_to: dateTo
         };
         await this._dbRequests.updateOrInsertBilling(dataBilling);
 
-        const inviteLink = transactionData.is_update_subscribe && +billingByUser.status
+        const vpnClient = transactionData.is_update_subscribe && +billingByUser.status
             ? true
             : await this.createVpnClient(user, transactionData);
-
-        if (inviteLink) {
+        if (vpnClient) {
             await this._bot.telegram.sendMessage(
                 user.user_tg_id,
                 `✅ <b>Оплата успешно завершена!</b>`,
                 { parse_mode: 'HTML' }
             );
-
-            const newBillingByUser = await this._dbRequests.getBillingByChatIdAndUserTgId(transactionData.chat_id, user.user_tg_id);
+            const newBillingByUser = await this._dbRequests.getBillingByServiceIdAndUserTgId(transactionData.service_id, user.user_tg_id);
             const keyboard = [];
-            const admin = await this._dbRequests.getAdminByChatTgId(newBillingByUser.chat_tg_id)
-            const billingAdmin = await this._dbRequests.getBillingAdminsByUserId(admin.user_id);
-            if (+billingAdmin.status) {
-                keyboard.push([
-                    Markup.button.callback(
-                        'Продлить подписку',
-                        JSON.stringify({ action: 'update_service_subscribe', chatId: transactionData.chat_id })
-                    )
-                ]);
-            }
-
+            keyboard.push([
+                Markup.button.callback(
+                    'Продлить подписку',
+                    JSON.stringify({ action: 'update_service_subscribe', serviceId: transactionData.service_id })
+                )
+            ]);
             await this._bot.telegram.sendMessage(
                 user.user_tg_id,
                 `🔵 Ваша подписка на VPN`
@@ -384,7 +418,6 @@ class UserRegistration {
                     ...Markup.inlineKeyboard(keyboard)
                 }
             );
-
             await this._bot.telegram.sendMessage(
                 notificationChatId,
                 `✅ <b>Подтверждение доставлено!</b>`,
@@ -401,10 +434,60 @@ class UserRegistration {
         return;
     }
 
+    async applyCryptoTransaction(paymentId, ctx) {
+        try {
+            ctx.answerCbQuery('Загрузка...');
+        } catch (error) { }
+        await ctx.sendChatAction('typing');
+
+        const transactionData = await this._dbRequests.getTransactionByPaymentId(paymentId);
+        const user = await this._dbRequests.getUserById(transactionData.user_id);
+        const serviceMeta = await this._dbRequests.getServiceMeta(transactionData.service_id);
+        const notificationChatId = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
+        const cryptoWallet = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_wallet')?.meta_value : null;
+        const cryptoCurrency = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_currency')?.meta_value : null;
+        if (!+transactionData.status) {
+            let text = '✅ <b>Пользователь перевел и подтвердил оплату за VPN!</b>\n\n';
+            text += `<b>Имя пользователя:</b> @${user.username}\n`;
+            text += `<b>Имя:</b> ${user.first_name}\n`;
+            text += `<b>Фамилия:</b> ${user.last_name}\n`;
+            text += `<b>Телефон:</b> ${user.phone}\n`;
+            text += `Оплата <b>${transactionData.price} ${cryptoCurrency}</b>\n`;
+            text += `<b>Кошелек:</b> ${cryptoWallet}\n`;
+            text += `<b>ID транзакции:</b> ${transactionData.payment_id}\n`;
+            const keyboard = [
+                [Markup.button.callback('Подтвердить оплату', JSON.stringify({ action: 'confirm_service_payment', paymentId: transactionData.payment_id }))]
+            ];
+
+            await this._bot.telegram.sendMessage(
+                user.user_tg_id,
+                '✅ <b>Подтверждение отправлено! Ожидайте подтверждение от получателя.</b>\n\n',
+                { parse_mode: 'HTML' }
+            );
+
+            return await this._bot.telegram.sendMessage(
+                notificationChatId,
+                text,
+                {
+                    parse_mode: 'HTML',
+                    ...Markup.inlineKeyboard(keyboard)
+                }
+            );
+        } else {
+            await this._bot.telegram.sendMessage(
+                user.user_tg_id,
+                '✅ <b>Транзакция уже завершена!</b>\n\n',
+                { parse_mode: 'HTML' }
+            );
+        }
+
+        return;
+    }
+
     async getKeyboardTarifs(ctx) {
         const keyboard = [];
 
-        if (ctx.session.card_price_1) {
+        if (+ctx.session.payment_type_card && ctx.session.card_price_1) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 1 месяц ${ctx.session.card_price_1}₽`,
@@ -413,7 +496,7 @@ class UserRegistration {
             ]);
         }
 
-        if (ctx.session.card_price_6) {
+        if (+ctx.session.payment_type_card && ctx.session.card_price_6) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 6 месяцев ${ctx.session.card_price_6}₽`,
@@ -422,7 +505,7 @@ class UserRegistration {
             ]);
         }
 
-        if (ctx.session.card_price_12) {
+        if (+ctx.session.payment_type_card && ctx.session.card_price_12) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 12 месяцев ${ctx.session.card_price_12}₽`,
@@ -431,7 +514,7 @@ class UserRegistration {
             ]);
         }
 
-        if (ctx.session.star_price_1) {
+        if (+ctx.session.payment_type_star && ctx.session.star_price_1) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 1 месяц ${ctx.session.star_price_1}⭐️`,
@@ -440,7 +523,7 @@ class UserRegistration {
             ]);
         }
 
-        if (ctx.session.star_price_6) {
+        if (+ctx.session.payment_type_star && ctx.session.star_price_6) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 6 месяцев ${ctx.session.star_price_6}⭐️`,
@@ -449,7 +532,7 @@ class UserRegistration {
             ]);
         }
 
-        if (ctx.session.star_price_12) {
+        if (+ctx.session.payment_type_star && ctx.session.star_price_12) {
             keyboard.push([
                 Markup.button.callback(
                     `➡️ За 12 месяцев ${ctx.session.star_price_12}⭐️`,
@@ -458,43 +541,76 @@ class UserRegistration {
             ]);
         }
 
+        if (+ctx.session.payment_type_crypto && ctx.session.crypto_price_1) {
+            keyboard.push([
+                Markup.button.callback(
+                    `➡️ За 1 месяц ${ctx.session.crypto_price_1} ${ctx.session.crypto_currency}`,
+                    JSON.stringify({ action: 'service_invoice', priceType: 'crypto_price_1' })
+                )
+            ]);
+        }
+
+        if (+ctx.session.payment_type_crypto && ctx.session.crypto_price_6) {
+            keyboard.push([
+                Markup.button.callback(
+                    `➡️ За 6 месяцев ${ctx.session.crypto_price_6} ${ctx.session.crypto_currency}`,
+                    JSON.stringify({ action: 'service_invoice', priceType: 'crypto_price_6' })
+                )
+            ]);
+        }
+
+        if (+ctx.session.payment_type_crypto && ctx.session.crypto_price_12) {
+            keyboard.push([
+                Markup.button.callback(
+                    `➡️ За 12 месяцев ${ctx.session.crypto_price_12} ${ctx.session.crypto_currency}`,
+                    JSON.stringify({ action: 'service_invoice', priceType: 'crypto_price_12' })
+                )
+            ]);
+        }
+
         return keyboard;
     }
 
-    async creaeteChatMetaSession(chatId, ctx) {
-        const chatMeta = await this._dbRequests.getChatMeta(chatId);
-        ctx.session.payment_type_card = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'payment_type_card')?.meta_value : null;
-        ctx.session.payment_number = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'payment_number')?.meta_value : null;
-        ctx.session.bank_name = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'bank_name')?.meta_value : null;
-        ctx.session.receiver_name = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'receiver_name')?.meta_value : null;
-        ctx.session.card_price_1 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value : 0;
-        ctx.session.card_price_6 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value : 0;
-        ctx.session.card_price_12 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value : 0;
-        ctx.session.payment_type_star = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'payment_type_star')?.meta_value : null;
-        ctx.session.star_price_1 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value : 0;
-        ctx.session.star_price_6 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value : 0;
-        ctx.session.star_price_12 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value : 0;
-        ctx.session.notification_chat_id = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
+    async creaeteServiceMetaSession(serviceId, ctx) {
+        const serviceMeta = await this._dbRequests.getServiceMeta(serviceId);
+        ctx.session.payment_type_card = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_card')?.meta_value : null;
+        ctx.session.payment_number = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'payment_number')?.meta_value : null;
+        ctx.session.bank_name = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'bank_name')?.meta_value : null;
+        ctx.session.receiver_name = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'receiver_name')?.meta_value : null;
+        ctx.session.card_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value : 0;
+        ctx.session.card_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value : 0;
+        ctx.session.card_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value : 0;
+
+        ctx.session.payment_type_star = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_star')?.meta_value : null;
+        ctx.session.star_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value : 0;
+        ctx.session.star_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value : 0;
+        ctx.session.star_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value : 0;
+
+        ctx.session.payment_type_crypto = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_crypto')?.meta_value : null;
+        ctx.session.crypto_wallet = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_wallet')?.meta_value : null;
+        ctx.session.crypto_currency = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_currency')?.meta_value : null;
+        ctx.session.crypto_network = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_network')?.meta_value : null;
+        ctx.session.crypto_price_1 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_1')?.meta_value : 0;
+        ctx.session.crypto_price_6 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_6')?.meta_value : 0;
+        ctx.session.crypto_price_12 = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'crypto_price_12')?.meta_value : 0;
+
+        ctx.session.notification_chat_id = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
     }
 
     async createVpnClient(user, transactionData) {
         try {
-            let period = transactionData.price_type == 'card_price_1' || transactionData.price_type == 'star_price_1'
+            let period = transactionData.price_type == 'card_price_1' || transactionData.price_type == 'star_price_1' || transactionData.price_type == 'crypto_price_1'
                 ? '1 месяц' : '';
-            period = transactionData.price_type == 'card_price_6' || transactionData.price_type == 'star_price_6'
+            period = transactionData.price_type == 'card_price_6' || transactionData.price_type == 'star_price_6' || transactionData.price_type == 'crypto_price_6'
                 ? '6 месяцев' : period;
-            period = transactionData.price_type == 'card_price_12' || transactionData.price_type == 'star_price_12'
+            period = transactionData.price_type == 'card_price_12' || transactionData.price_type == 'star_price_12' || transactionData.price_type == 'crypto_price_12'
                 ? '12 месяцев' : period;
 
-            const chat = await this._dbRequests.getChatById(transactionData.chat_id);
-            const chatInfo = await this._bot.telegram.getChat(chat.chat_tg_id);
             const headers = { 'Content-Type': 'application/json' };
             let clients = await this._axios.get(this._wireguardClientPath, { headers });
-
             let client = clients.data.length > 0
                 ? await clients.data.filter(client => client.name == "tg_client_" + user.user_tg_id)
                 : false;
-
             if (client.length == 0) {
                 await this._axios.post(
                     this._wireguardClientPath,
@@ -505,24 +621,19 @@ class UserRegistration {
                     ? await clients.data.filter(client => client.name == "tg_client_" + user.user_tg_id)
                     : false;
             }
-
             const svgResponse = await this._axios.get(
                 `${this._wireguardClientPath}/${client[0].id}/qrcode.svg`,
                 { responseType: 'arraybuffer' }
             );
-
             // Конвертируем SVG в PNG с помощью sharp
             const pngBuffer = await this._sharp(svgResponse.data).png().toBuffer();
-
-            const chatTitle = chatInfo.title ? `🔰<b>${chatInfo.title}</b>` : '';
-            const chatDescription = chatInfo.description ? `\n<b>${chatInfo.description}</b>` : '';
-            const periodSubscribe = `\n<blockquote>Подпсика на VPN оформлена на <b>${period}</b></blockquote>`;
+            const subscribe = `🔰 Подпсика на сервис VPN\n<blockquote>Оформлена на <b>${period}</b></blockquote>`;
             const qrVpnInstall = `\n<blockquote>Установите приложение ${this._appVPNLink}\nПосле чего используйте QR-код для подключения - сканируйте камерой через приложение.</blockquote>`;
             await this._bot.telegram.sendPhoto(
                 user.user_tg_id,
                 { source: pngBuffer },
                 {
-                    caption: `${chatTitle}${chatDescription}${periodSubscribe}${qrVpnInstall}`,
+                    caption: `${subscribe}${qrVpnInstall}`,
                     parse_mode: 'HTML',
                     disable_web_page_preview: true
                 }
@@ -559,30 +670,6 @@ class UserRegistration {
         return await ctx.answerPreCheckoutQuery(true).catch((err) => {
             console.error('Error answering pre_checkout_query:', err);
         });
-    }
-
-    async formatDate(date) {
-        const expireDate = new Date(date * 1000);
-        const day = String(expireDate.getDate()).padStart(2, '0');
-        const month = String(expireDate.getMonth() + 1).padStart(2, '0');
-        const year = expireDate.getFullYear();
-        const hours = String(expireDate.getHours()).padStart(2, '0');
-        const minutes = String(expireDate.getMinutes()).padStart(2, '0');
-        return `${day}.${month}.${year} ${hours}:${minutes}`;
-    }
-
-    async getDateWithMonthsOffset(months = 0, date = new Date()) {
-        const now = new Date(date);
-        now.setMonth(now.getMonth() + months);
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 }
 

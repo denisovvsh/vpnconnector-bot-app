@@ -4,6 +4,7 @@ const { DbRequests } = require('./db-requests');
 const { Attributes } = require('./attributes');
 const { SendMessages } = require('./send-messages');
 const { UserRegistration } = require('./user-registration');
+const { SettingsService } = require('./settings-service');
 const { CallbackQuery } = require('./callback-query');
 const { Steps } = require('./steps');
 const { CronAssistant } = require('./cron-assistant');
@@ -18,8 +19,9 @@ class VpnconnectorMain {
         const attributes = new Attributes(this._bot);
         const sendMessages = new SendMessages(this._bot, dbRequests, attributes);
         const userRegistration = new UserRegistration(this._bot, dbRequests, sendMessages, attributes);
-        const callbackQuery = new CallbackQuery(userRegistration);
-        const steps = new Steps(this._bot, dbRequests, userRegistration, sendMessages, attributes);
+        const settingsService = new SettingsService(this._bot, dbRequests, sendMessages);
+        const callbackQuery = new CallbackQuery(userRegistration, settingsService);
+        const steps = new Steps(this._bot, dbRequests, userRegistration, sendMessages, settingsService, attributes);
         const cronAssistant = new CronAssistant(this._bot, dbRequests);
 
         this._bot.use(async (ctx, next) => {
@@ -37,12 +39,23 @@ class VpnconnectorMain {
 
         this._bot.start(async (ctx, next) => {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
+            ctx.session = null;
+            await ctx.reply(
+                `👋 <b>Привет!</b>`,
+                {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        remove_keyboard: true
+                    }
+                }
+            );
             userRegistration.signUp(ctx);
             return next();
         });
 
         this._bot.help(async (ctx, next) => {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
+            ctx.session = null;
             userRegistration.signUp(ctx);
             console.log('BotInfo:');
             console.log(ctx.botInfo);
@@ -51,27 +64,27 @@ class VpnconnectorMain {
 
         this._bot.command('my_vpn', async (ctx, next) => {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
+            ctx.session = null;
             userRegistration.signUp(ctx);
             return;
         });
 
         this._bot.on('contact', async (ctx, next) => {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
-            if (ctx.session?.srvice) {
-                await userRegistration.contact(ctx);
-            }
+            await userRegistration.contact(ctx);
             return next();
         });
 
         this._bot.on('callback_query', async (ctx, next) => {
+            await callbackQuery.actionSettingsService(ctx);
             await callbackQuery.actionVpnUserRegistration(ctx);
             return next();
         });
 
         this._bot.on('message', async (ctx, next) => {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
-            if (ctx.session.step && ctx.session?.srvice) {
-                await steps.actionAdminPayment(ctx);
+            if (ctx.session.step) {
+                await steps.actionSettingsService(ctx);
                 await steps.actionUserRegistration(ctx);
             }
 

@@ -13,7 +13,7 @@ class SendMessages {
 
     async sendNotificationsAdministrators(ctx) {
         const action = ctx.session.admin_subscribe ? 'confirm_admin_payment' : 'confirm_service_payment';
-        const keyboard = ctx.session.price_type.startsWith('card_price_')
+        const keyboard = ctx.session.price_type.startsWith('card_price_') || ctx.session.price_type.startsWith('crypto_price_')
             ? [[Markup.button.callback(
                 'Подтвердить оплату',
                 JSON.stringify({ action: action, paymentId: ctx.session.payment_id })
@@ -72,7 +72,15 @@ class SendMessages {
         text += `<b>Имя:</b> ${ctx.session.name}\n`;
         text += `<b>Фамилия:</b> ${ctx.session.surname}\n`;
         text += `<b>Телефон:</b> ${phone}\n`;
-        text += `Оплата <b>${ctx.session.price}${ctx.session.currency}</b>\n`;
+        text += `Оплата <b>${ctx.session.price} ${ctx.session.currency}</b>\n`;
+
+        if (ctx.session.price_type.startsWith('card_price_')) {
+            text += `\n🔵 Пользователь должен подтвердить оплату скриншотом квитанции - как только он это сделает, я перешлю его вам!\n`;    
+        }
+
+        if (ctx.session.price_type.startsWith('crypto_price_')) {
+            text += `\n🔵 Пользователь должен подтвердить оплату - нажав на кнопку подтеврждения и вы получите сообщение!\n`;    
+        }
 
         text += `\n🟢 #Подтверждено`;
 
@@ -105,136 +113,116 @@ class SendMessages {
         text += `<b>Имя:</b> ${ctx.session.name}\n`;
         text += `<b>Фамилия:</b> ${ctx.session.surname}\n`;
         text += `<b>Телефон:</b> ${phone}\n`;
-        text += `Оплата <b>${ctx.session.price}${ctx.session.currency}</b>\n`;
+        text += `Оплата <b>${ctx.session.price} ${ctx.session.currency}</b>\n`;
 
         text += `\n🟠 #НеПодтверждено`;
 
         return text;
     }
 
-    async sendMessageAboutChat(chat, chatMeta, admin, ctx) {
+    async getPriceService(serviceId) {
+        let price = '';
+        const serviceMeta = await this._dbRequests.getServiceMeta(serviceId);
+        if (serviceMeta) {
+            const payment_type_card = await serviceMeta.find(meta => meta.meta_key == 'payment_type_card')?.meta_value;
+            const payment_type_star = await serviceMeta.find(meta => meta.meta_key == 'payment_type_star')?.meta_value;
+            const payment_type_crypto = await serviceMeta.find(meta => meta.meta_key == 'payment_type_crypto')?.meta_value;
+            const crypto_currency = await serviceMeta.find(meta => meta.meta_key == 'crypto_currency')?.meta_value;
+            const card_price_1 = await serviceMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value;
+            const card_price_6 = await serviceMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value;
+            const card_price_12 = await serviceMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value;
+            const star_price_1 = await serviceMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value;
+            const star_price_6 = await serviceMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value;
+            const star_price_12 = await serviceMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value;
+            const crypto_price_1 = await serviceMeta.find(meta => meta.meta_key == 'crypto_price_1')?.meta_value;
+            const crypto_price_6 = await serviceMeta.find(meta => meta.meta_key == 'crypto_price_6')?.meta_value;
+            const crypto_price_12 = await serviceMeta.find(meta => meta.meta_key == 'crypto_price_12')?.meta_value;
+            if (+payment_type_card) {
+                price += `\n💰 Стоимость подписки - переводом на карту:`;
+                price += card_price_1 ? `\n🔰 За 1 месяц: ${card_price_1}₽` : '';
+                price += card_price_6 ? `\n🔰 За 6 месяцев: ${card_price_6}₽` : '';
+                price += card_price_12 ? `\n🔰 За 12 месяцев: ${card_price_12}₽` : '';
+            }
+            if (+payment_type_star) {
+                price += `\n💰 Стоимость подписки - звездами Telegram:`;
+                price += star_price_1 ? `\n🔰 За 1 месяц: ${star_price_1}⭐️` : '';
+                price += star_price_6 ? `\n🔰 За 6 месяцев: ${star_price_6}⭐️` : '';
+                price += star_price_12 ? `\n🔰 За 12 месяцев: ${star_price_12}⭐️` : '';
+            }
+            if (+payment_type_crypto) {
+                price += `\n💰 Стоимость подписки - крипто валютой ${crypto_currency}:`;
+                price += crypto_price_1 ? `\n🔰 За 1 месяц: ${crypto_price_1} ${crypto_currency}` : '';
+                price += crypto_price_6 ? `\n🔰 За 6 месяцев: ${crypto_price_6} ${crypto_currency}` : '';
+                price += crypto_price_12 ? `\n🔰 За 12 месяцев: ${crypto_price_12} ${crypto_currency}` : '';
+            }
+        }
+        return price;
+    }
+
+    async sendMessageAboutService(service, ctx) {
         const userTgId = ctx.update?.message?.from.id
             ?? ctx.update?.my_chat_member?.from.id
             ?? ctx.update?.callback_query?.from.id;
-        const adminTgId = admin?.user?.id ?? admin.user_tg_id;
-        const card_price_1 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_1')?.meta_value : 0;
-        const card_price_6 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_6')?.meta_value : 0;
-        const card_price_12 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'card_price_12')?.meta_value : 0;
-        const star_price_1 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_1')?.meta_value : 0;
-        const star_price_6 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_6')?.meta_value : 0;
-        const star_price_12 = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'star_price_12')?.meta_value : 0;
-        let chatInfo = null;
-        try {
-            chatInfo = await this._bot.telegram.getChat(chat.chat_tg_id);
-        } catch (error) {
-            return await ctx.telegram.sendMessage(
-                userTgId,
-                `🔴 <b>Чат/Канал сервиса VPN не найден!</b>`
-                + `<blockquote>Возможно бот исключен из Чата/Канала!</blockquote>`,
-                { parse_mode: 'HTML' }
-            );
-        }
-        const title = chatInfo?.title ? `🔰 <b>${chatInfo.title}</b>` : '';
-        const description = chatInfo?.description ? `\n<blockquote>${chatInfo.description}</blockquote>` : '';
-        let price = '';
-        price += card_price_1 ? `\n<blockquote>За 1 месяц: <b>${card_price_1}₽</b></blockquote>` : '';
-        price += card_price_6 ? `\n<blockquote>За 6 месяцев: <b>${card_price_6}₽</b></blockquote>` : '';
-        price += card_price_12 ? `\n<blockquote>За 12 месяцев: <b>${card_price_12}₽</b></blockquote>` : '';
-        price += star_price_1 ? `\n<blockquote>За 1 месяц: <b>${star_price_1}⭐️</b></blockquote>` : '';
-        price += star_price_6 ? `\n<blockquote>За 6 месяцев: <b>${star_price_6}⭐️</b></blockquote>` : '';
-        price += star_price_12 ? `\n<blockquote>За 12 месяцев: <b>${star_price_12}⭐️</b></blockquote>` : '';
-        price = price.length > 0 ? `\n\n<b>Стоимость подписки:</b>${price}` : '';
-        const message = `${title}${description}${price}`;
-
+        const adminTgId = process.env.BOT_OWNER_ID;
+        const entities = service.raw?.caption_entities ?? service.raw?.entities ?? [];
+        const sourceText = service.raw?.caption ?? service.raw?.text ?? '';
         const keyboard = [];
-
+        let price = await this.getPriceService(service.id);
         if (price.length > 0) {
-            keyboard.push([Markup.button.callback('Оплатить доступ к VPN', JSON.stringify({ action: 'subscribe_service', chatId: chat.id }))]);
+            keyboard.push(
+                [Markup.button.callback('Оплатить доступ к VPN', JSON.stringify({ action: 'subscribe_service', serviceId: service.id }))]
+            );
         }
         if (userTgId == adminTgId) {
-            keyboard.push([Markup.button.callback('Настроить стоимость', JSON.stringify({ action: 'settings_up', chatId: chat.id }))]);
-        }
-        if (chatInfo.photo) {
-            const fileId = chatInfo.photo.big_file_id;
-            const file = await this._bot.telegram.getFile(fileId);
-            const filePath = file.file_path;
-
-            // Получение файла с использованием axios
-            const response = await this._axios.get(
-                `${this._filePath}/${filePath}`,
-                { responseType: 'stream' }
+            keyboard.push(
+                [Markup.button.callback('Настроить стоимость', JSON.stringify({ action: 'settings_up', serviceId: service.id }))]
             );
-
-            await ctx.telegram.sendPhoto(
-                userTgId,
-                { source: response.data },
-                {
-                    caption: message,
-                    parse_mode: 'HTML',
-                    ...Markup.inlineKeyboard(keyboard)
-                },
-            );
-        } else {
-            await ctx.telegram.sendMessage(
-                userTgId,
-                message,
-                {
-                    parse_mode: 'HTML',
-                    ...Markup.inlineKeyboard(keyboard)
-                }
+            keyboard.push(
+                [Markup.button.callback('📋 Изменить пост сервиса', JSON.stringify({ action: 'edit_service_vpn', serviceId: service.id }))]
             );
         }
-    }
 
-    async sendMessageMySubscribeChat(chat, userTgId, admin, ctx) {
-        let chatInfo = null;
+        price = price.length > 0 ? `\n\n${price}` : '\n\n🔴 Не настроена стоимость подписки!'
+        const message = `${sourceText}${price}`;
         try {
-            chatInfo = await this._bot.telegram.getChat(chat.chat_tg_id);
+            const fileId = service.raw.video?.file_id ?? service.raw.photo?.pop().file_id ?? null;
+            if (service.raw.photo) {
+                await this._bot.telegram.sendPhoto(
+                    userTgId,
+                    fileId,
+                    {
+                        caption: message,
+                        caption_entities: entities,
+                        disable_web_page_preview: true,
+                        ...Markup.inlineKeyboard(keyboard)
+                    }
+                );
+            }
+            if (service.raw.video) {
+                await this._bot.telegram.sendVideo(
+                    userTgId,
+                    fileId,
+                    {
+                        caption: message,
+                        caption_entities: entities,
+                        disable_web_page_preview: true,
+                        ...Markup.inlineKeyboard(keyboard)
+                    }
+                );
+            }
+            if (!service.raw.photo && !service.raw.video) {
+                await this._bot.telegram.sendMessage(
+                    userTgId,
+                    message,
+                    {
+                        entities: entities,
+                        disable_web_page_preview: true,
+                        ...Markup.inlineKeyboard(keyboard)
+                    }
+                );
+            }
         } catch (error) {
-            return await ctx.telegram.sendMessage(
-                userTgId,
-                `🔴 <b>Чат/Канал сервиса VPN не найден!</b>`
-                + `<blockquote>Возможно бот исключен из Чата/Канала!</blockquote>`,
-                { parse_mode: 'HTML' }
-            );
-        }
-        const title = chatInfo?.title ? `🔰 <b>${chatInfo.title}</b>` : '';
-        const description = chatInfo?.description ? `\n<blockquote>${chatInfo.description}</blockquote>` : '';
-        let statusSubsecibe = `\n<blockquote>Подписка действительна до <b>${chat.billing_date_to}</b></blockquote>`;
-        const message = `${title}${description}${statusSubsecibe}`;
-
-        const keyboard = [];
-        keyboard.push([Markup.button.callback('Продлить подписку', JSON.stringify({ action: 'update_subscribe', chatId: chat.chat_id }))]);
-
-        if (chatInfo.photo) {
-            const fileId = chatInfo.photo.big_file_id;
-            const file = await this._bot.telegram.getFile(fileId);
-            const filePath = file.file_path;
-
-            // Получение файла с использованием axios
-            const response = await this._axios.get(
-                `${this._filePath}/${filePath}`,
-                { responseType: 'stream' }
-            );
-
-            await ctx.telegram.sendPhoto(
-                userTgId,
-                { source: response.data },
-                {
-                    caption: message,
-                    parse_mode: 'HTML',
-                    ...Markup.inlineKeyboard(keyboard)
-                },
-            );
-        } else {
-            await ctx.telegram.sendMessage(
-                userTgId,
-                message,
-                {
-                    parse_mode: 'HTML',
-                    ...Markup.inlineKeyboard(keyboard)
-                }
-            );
+            console.error(`Ошибка отправки сообщения пользователю с ID: ${adminTgId}`, error);
         }
     }
 }

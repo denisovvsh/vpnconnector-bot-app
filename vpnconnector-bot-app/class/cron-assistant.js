@@ -19,10 +19,9 @@ class CronAssistant {
             const clients = await this._axios.get(this._wireguardClientPath, { headers });
 
             for (let billingRow of billingRows) {
-                if (billingRow.chat_type != 'service') continue;
-                const chatMeta = await this._dbRequests.getChatMeta(billingRow.chat_id);
-                if (!chatMeta) continue;
-                const notificationChatId = chatMeta ? await chatMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
+                const serviceMeta = await this._dbRequests.getServiceMeta(billingRow.service_id);
+                if (!serviceMeta) continue;
+                const notificationChatId = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
                 if (!notificationChatId) continue;
 
                 let client = clients.data.length > 0
@@ -36,7 +35,7 @@ class CronAssistant {
                         await this._axios.delete(`${this._wireguardClientPath}/${item.id}`, { headers });
                         const dataBilling = {
                             user_id: billingRow.user_id,
-                            chat_id: billingRow.chat_id,
+                            service_id: billingRow.service_id,
                             status: 0,
                             date_from: billingRow.date_from,
                             date_to: billingRow.date_to
@@ -72,16 +71,14 @@ class CronAssistant {
             const billingRows = await this._dbRequests.getBillingByOneMoreDay();
             if (!billingRows) return;
             for (let billingRow of billingRows) {
-                if (billingRow.chat_type != 'service') continue;
                 const keyboard = [
                     [
                         Markup.button.callback(
                             'Продлить подписку',
-                            JSON.stringify({ action: 'update_service_subscribe', chatId: billingRow.chat_id })
+                            JSON.stringify({ action: 'update_service_subscribe', serviceId: billingRow.service_id })
                         )
                     ]
                 ];
-
                 await this._bot.telegram.sendMessage(
                     item.user_tg_id,
                     `🟠 Заканчивается подписка на VPN`
