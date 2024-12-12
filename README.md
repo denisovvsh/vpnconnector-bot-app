@@ -4,7 +4,24 @@
 
 * Клонировать репу в корень сервера на котором должно быть установлено окружение для Docker
 
-* Перейти в директорию ```vpnconnector-bot-app``` и добавить файл ```.env``` пример содержимого файла в файле ```exapmle.env```
+* Перейти в директорию ```vpnconnector-bot-app``` и добавить файл ```.env``` пример содержимого файла
+* Внутри будут необходимые сервисы для работы бота + директория самого бота ```vpnconnector-bot-app```
+
+```bash
+BOT_TOKEN=''
+BOT_ID='7373081855'
+BOT_USERNAME='@VpnConnectorBot'
+BOT_LINK='http://t.me/VpnConnectorBot'
+BOT_LINK_SUPPORT='https://t.me/sblk777'
+BOT_SUPPORT_ID='793494085'
+BOT_OWNER_ID='793494085'
+NOTIFICATION_CHAT_ID='793494085'
+MANAGER_SUPPORT='@sblk777'
+MYSQL_ROOT_HOST='mysql-server'
+MYSQL_DATABASE=''
+MYSQL_USER=''
+MYSQL_PASSWORD=''
+```
 
 * Перейти в директорию с файлом ```docker-compose.yml``` 
 
