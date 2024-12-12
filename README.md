@@ -41,3 +41,5 @@ PMA_PASSWORD='secret'
 
 * Через phpMyAdmin http://localhost:40081/ 
 * Настройки доступа задаются в файле .env
+* Создать новую БД и импортировать дамп из файла ```bot_vpnconnector.sql```
+* Не забыть добавить пользователя через phpMyAdmin
