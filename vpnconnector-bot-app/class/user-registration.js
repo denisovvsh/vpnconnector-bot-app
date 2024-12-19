@@ -221,6 +221,13 @@ class UserRegistration {
         }
         await ctx.sendChatAction('typing');
 
+        if (!ctx.session?.user_id) {
+            return await ctx.reply(
+                `🟠 <b>Сессия оплаты устарела, начните регистрацию повторно - нажимте /my_vpn здесь или в меню бота.</b>`,
+                { parse_mode: 'HTML' }
+            );
+        }
+
         ctx.session.price_type = priceType;
         const randomInt = await this.getRandomInt(10, 50);
         let price = 0;
