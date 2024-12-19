@@ -657,7 +657,7 @@ class UserRegistration {
 
             return true;
         } catch (error) {
-            console.error('Ошибка при получении настроек VPN', error);
+            console.error('Ошибка при получении настроек VPN', error.response.data.error);
             await this._bot.telegram.sendMessage(
                 user.user_tg_id,
                 '🟠 Не удалось получить настройки VPN.',
