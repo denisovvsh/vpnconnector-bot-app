@@ -425,9 +425,13 @@ class UserRegistration {
                 { parse_mode: 'HTML' }
             );
         } else {
+            dataTransaction.status = 0;
+            await this._dbRequests.updateOrInsertTransactions(dataTransaction);
+            dataBilling.status = 0;
+            await this._dbRequests.updateOrInsertBilling(dataBilling);
             await this._bot.telegram.sendMessage(
                 notificationChatId,
-                '🟠 Не удалось получить настройки VPN.',
+                '🟠 Не удалось получить настройки VPN.\n<blockquote>Нажмите кнопку "Подтвердить" повторно!</blockquote>',
                 { parse_mode: 'HTML' }
             );
         }
@@ -660,7 +664,7 @@ class UserRegistration {
             console.error('Ошибка при получении настроек VPN', error.response.data.error);
             await this._bot.telegram.sendMessage(
                 user.user_tg_id,
-                '🟠 Не удалось получить настройки VPN.',
+                '🟠 Не удалось получить настройки VPN.\n<blockquote>Менеджер уже получил уведомление, скоро произведет повторное подтверждение!</blockquote>',
                 { parse_mode: 'HTML' }
             );
             return false;
