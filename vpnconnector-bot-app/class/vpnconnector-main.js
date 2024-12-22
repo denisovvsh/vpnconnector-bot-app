@@ -8,6 +8,7 @@ const { SettingsService } = require('./settings-service');
 const { CallbackQuery } = require('./callback-query');
 const { Steps } = require('./steps');
 const { CronAssistant } = require('./cron-assistant');
+const { XRay } = require('./x-ray');
 
 class VpnconnectorMain {
     constructor(bot) {
@@ -17,12 +18,13 @@ class VpnconnectorMain {
     async startVpnconnector() {
         const dbRequests = new DbRequests(process.env.BOT_ID);
         const attributes = new Attributes(this._bot);
+        const xRay = new XRay();
         const sendMessages = new SendMessages(this._bot, dbRequests, attributes);
-        const userRegistration = new UserRegistration(this._bot, dbRequests, sendMessages, attributes);
+        const userRegistration = new UserRegistration(this._bot, dbRequests, sendMessages, xRay, attributes);
         const settingsService = new SettingsService(this._bot, dbRequests, sendMessages);
         const callbackQuery = new CallbackQuery(userRegistration, settingsService);
         const steps = new Steps(this._bot, dbRequests, userRegistration, sendMessages, settingsService, attributes);
-        const cronAssistant = new CronAssistant(this._bot, dbRequests);
+        const cronAssistant = new CronAssistant(this._bot, xRay, dbRequests);
 
         this._bot.use(async (ctx, next) => {
             if (!ctx.session) ctx.session = {};
@@ -97,7 +99,7 @@ class VpnconnectorMain {
         });
 
         const botJob = new CronJob('0 */8 * * *', async () => {
-            cronAssistant.kickUser();
+            cronAssistant.kickXrayUser();
             cronAssistant.checkUserSubscribe();
             console.log('Проверка актуальности подписки VPN', await attributes.getDateWithMonthsOffset());
         });
