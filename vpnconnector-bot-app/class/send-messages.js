@@ -67,7 +67,7 @@ class SendMessages {
         phone = phone
             ? `<a href="tel:${phone}">${phone}</a>`
             : ctx.session.phone;
-        let text = '✅ <b>Пользователь завершил формление подписки на VPN!</b>\n\n';
+        let text = '✅ <b>Пользователь завершил оформление подписки на VPN!</b>\n\n';
         text += `<b>Имя пользователя:</b> @${ctx.session.username}\n`;
         text += `<b>Имя:</b> ${ctx.session.name}\n`;
         text += `<b>Фамилия:</b> ${ctx.session.surname}\n`;
