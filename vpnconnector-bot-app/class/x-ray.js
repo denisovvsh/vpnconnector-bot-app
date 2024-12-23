@@ -1,9 +1,11 @@
 require('dotenv').config();
 const axios = require('axios');
+const md5 = require('md5');
 
 class XRay {
     constructor() {
         this._axios = axios;
+        this._md5 = md5;
         this._host = 'http://88.210.3.140:5056';
         this._login = process.env.XRAY_LOGIN;
         this._password = process.env.XRAY_PASSWORD;
@@ -52,13 +54,14 @@ class XRay {
             'X-Requested-With': 'XMLHttpRequest',
             'Cookie': cookies
         };
-        const userName = userData.username ? userData.username : userData.user_tg_id;
+        const userName = userData.username && userData.username != '' ? userData.username : userData.user_tg_id;
         const subId = 'sub_id_' + userData.user_tg_id;
+        const clientId = this._md5(userData.user_tg_id);
         const data = {
             id: 2,
             settings: JSON.stringify({
                 clients: [{
-                    id: 'tg_client_' + userData.user_tg_id,
+                    id: clientId,
                     flow: '',
                     email: userName,
                     limitIp: 0,

@@ -45,7 +45,13 @@ class CronAssistant {
             if (!billingRows) return;
 
             const cookies = await this._xRay.loginUser();
-            if (!cookies) return
+            if (!cookies) {
+                return await this._bot.telegram.sendMessage(
+                    process.env.BOT_OWNER_ID,
+                    `🔴 Ошибка получения куки на сервере ВПН!`,
+                    { parse_mode: 'HTML' }
+                );
+            }
             const usersList = await this._xRay.getUsersList(cookies);
 
             for (let billingRow of billingRows) {
@@ -53,9 +59,8 @@ class CronAssistant {
                 if (!serviceMeta) continue;
                 const notificationChatId = serviceMeta ? await serviceMeta.find(meta => meta.meta_key == 'notification_chat_id')?.meta_value : null;
                 if (!notificationChatId) continue;
-
                 const client = usersList.length > 0
-                    ? await usersList.filter(client => client.id == 'tg_client_' + billingRow.user_tg_id)
+                    ? await usersList.filter(client => client.tgId == billingRow.user_tg_id)
                     : false;
 
                 if (client.length == 0) continue;

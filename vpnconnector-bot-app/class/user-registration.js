@@ -3,6 +3,7 @@ const { Markup } = require('telegraf');
 const axios = require('axios');
 const sharp = require('sharp');
 const QRCode = require('qrcode');
+const md5 = require('md5');
 
 class UserRegistration {
     constructor(bot, dbRequests, sendMessages, xRay, attributes) {
@@ -14,6 +15,7 @@ class UserRegistration {
         this._sharp = sharp;
         this._xRay = xRay;
         this._qRCode = QRCode;
+        this._md5 = md5;
         this._wireguardClientPath = 'http://88.210.3.140:51821/api/wireguard/client';
         this._appVPNLink = 'https://play.google.com/store/apps/details?id=com.wireguard.android&pli=1';
         this._instructionXRayLink = 'https://telegra.ph/Kak-podklyuchit-VPN-cherez-QR-CODE-12-22';
@@ -622,9 +624,7 @@ class UserRegistration {
             period = transactionData.price_type == 'card_price_12' || transactionData.price_type == 'star_price_12' || transactionData.price_type == 'crypto_price_12'
                 ? '12 месяцев' : period;
 
-            await this.createXRayVpnClient(user, period);
-
-            return true;
+            return await this.createXRayVpnClient(user, period);            
         } catch (error) {
             console.error('Ошибка при получении настроек VPN', error.response.data.error);
             await this._bot.telegram.sendMessage(
@@ -638,17 +638,25 @@ class UserRegistration {
 
     async createXRayVpnClient(user, period) {
         const cookies = await this._xRay.loginUser();
-        if (!cookies) return
+        if (!cookies) {
+            await this._bot.telegram.sendMessage(
+                process.env.BOT_OWNER_ID,
+                `🔴 Ошибка получения куки на сервере ВПН!`,
+                { parse_mode: 'HTML' }
+            );
+            return false;
+        }
         const usersList = await this._xRay.getUsersList(cookies);
+        const clientId = this._md5(user.user_tg_id);
         const client = usersList.length > 0
-            ? await usersList.filter(client => client.id == 'tg_client_' + user.user_tg_id)
+            ? await usersList.filter(client => client.id == clientId)
             : false;
         if (!client || client.length == 0) {
-            await this._xRay.addUser(cookies, user);
+            const userAddResult = await this._xRay.addUser(cookies, user);
+            if (!userAddResult) return false;
         }
-
         const userName = user.username ? user.username : user.user_tg_id;
-        const linkVpnConnect = `vless://tg_client_${user.user_tg_id}@88.210.3.140:29685?type=tcp&security=reality&pbk=MFisFtRSOCkuJReej162AmQjb8NaMxqKKkeHTdEHn1M&fp=chrome&sni=yahoo.com&sid=938d8fb82818&spx=%2F&flow=xtls-rprx-vision#${userName}`;
+        const linkVpnConnect = `vless://${clientId}@88.210.3.140:29685?type=tcp&security=reality&pbk=MFisFtRSOCkuJReej162AmQjb8NaMxqKKkeHTdEHn1M&fp=chrome&sni=yahoo.com&sid=938d8fb82818&spx=%2F&flow=xtls-rprx-vision#${userName}`;
         const subscribe = `🔰 Подпсика на сервис VPN\n<blockquote>Оформлена на <b>${period}</b></blockquote>`;
         const instruction = `\nСсылка на инструкцию: ${this._instructionXRayLink}`;
         const qrVpnQrInstall = `QR-код для подключения`;
@@ -689,6 +697,8 @@ class UserRegistration {
                 disable_web_page_preview: true
             }
         );
+
+        return true;
     }
 
     async createWgVpnClient(user, period) {
