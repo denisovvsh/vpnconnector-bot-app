@@ -144,7 +144,7 @@ class SettingsService {
         ctx.session.payment_type_crypto = serviceMeta ? +await serviceMeta.find(meta => meta.meta_key == 'payment_type_crypto')?.meta_value : 0;
         ctx.session.service_id = serviceId;
 
-        let message = `✍️ Выбирите <b>Способ оплаты</b>, который нужно настроить в первую очередь:`;
+        let message = `✍️ Выберите <b>Способ оплаты</b>, который нужно настроить в первую очередь:`;
         const keyboard = [
             [
                 Markup.button.callback('💳 На карту', JSON.stringify({ action: 'settings_payment_card' })),

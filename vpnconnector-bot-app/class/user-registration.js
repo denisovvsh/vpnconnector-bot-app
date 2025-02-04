@@ -656,7 +656,7 @@ class UserRegistration {
             if (!userAddResult) return false;
         }
         const userName = user.username ? user.username : user.user_tg_id;
-        const linkVpnConnect = `vless://${clientId}@88.210.3.140:29685?type=tcp&security=reality&pbk=MFisFtRSOCkuJReej162AmQjb8NaMxqKKkeHTdEHn1M&fp=chrome&sni=yahoo.com&sid=938d8fb82818&spx=%2F&flow=xtls-rprx-vision#${userName}`;
+        const linkVpnConnect = `vless://${clientId}@88.210.3.140:29685?type=tcp&security=reality&pbk=MFisFtRSOCkuJReej162AmQjb8NaMxqKKkeHTdEHn1M&fp=chrome&sni=yahoo.com&sid=938d8fb82818&spx=%2F#${userName}`;
         const subscribe = `🔰 Подпсика на сервис VPN\n<blockquote>Оформлена на <b>${period}</b></blockquote>`;
         const instruction = `\nСсылка на инструкцию: ${this._instructionXRayLink}`;
         const qrVpnQrInstall = `QR-код для подключения`;
