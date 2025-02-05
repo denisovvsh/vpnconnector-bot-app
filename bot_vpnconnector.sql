@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Хост: mysql-server
--- Время создания: Дек 12 2024 г., 05:42
+-- Время создания: Фев 05 2025 г., 11:31
 -- Версия сервера: 8.0.19
 -- Версия PHP: 7.4.1
 
@@ -37,6 +37,33 @@ CREATE TABLE `billing` (
   `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `date_from` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата начала действия ',
   `date_to` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата до которой действует'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Структура таблицы `list_referral_leads`
+--
+
+CREATE TABLE `list_referral_leads` (
+  `id` bigint NOT NULL,
+  `referral_user_id` bigint NOT NULL,
+  `lead_user_id` bigint NOT NULL COMMENT 'Лид который перешел по ссылке',
+  `referral_utm` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL COMMENT 'UTM метка реферала, произвольное значение или Ид пользователя ил Ид бота',
+  `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_520_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Структура таблицы `list_referral_links`
+--
+
+CREATE TABLE `list_referral_links` (
+  `id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
+  `link` varchar(255) NOT NULL,
+  `utm` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -130,6 +157,18 @@ ALTER TABLE `billing`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Индексы таблицы `list_referral_leads`
+--
+ALTER TABLE `list_referral_leads`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Индексы таблицы `list_referral_links`
+--
+ALTER TABLE `list_referral_links`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Индексы таблицы `service`
 --
 ALTER TABLE `service`
@@ -167,6 +206,18 @@ ALTER TABLE `users_meta`
 -- AUTO_INCREMENT для таблицы `billing`
 --
 ALTER TABLE `billing`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT для таблицы `list_referral_leads`
+--
+ALTER TABLE `list_referral_leads`
+  MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT для таблицы `list_referral_links`
+--
+ALTER TABLE `list_referral_links`
   MODIFY `id` bigint NOT NULL AUTO_INCREMENT;
 
 --
