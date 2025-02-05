@@ -8,7 +8,7 @@ class CronAssistant {
         this._dbRequests = dbRequests;
         this._axios = axios;
         this._xRay = xRay;
-        this._wireguardClientPath = 'http://88.210.3.140:51821/api/wireguard/client';
+        this._wireguardClientPath = `http://${process.env.WIREGUARD_HOST}/api/wireguard/client`;
     }
 
     async checkUserSubscribe() {

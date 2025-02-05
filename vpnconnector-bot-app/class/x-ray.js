@@ -6,7 +6,7 @@ class XRay {
     constructor() {
         this._axios = axios;
         this._md5 = md5;
-        this._host = 'http://88.210.3.140:5056';
+        this._host = `http://${process.env.XRAY_HOST}`;
         this._login = process.env.XRAY_LOGIN;
         this._password = process.env.XRAY_PASSWORD;
     }

@@ -16,7 +16,7 @@ class UserRegistration {
         this._xRay = xRay;
         this._qRCode = QRCode;
         this._md5 = md5;
-        this._wireguardClientPath = 'http://88.210.3.140:51821/api/wireguard/client';
+        this._wireguardClientPath = `http://${process.env.WIREGUARD_HOST}/api/wireguard/client`;
         this._appVPNLink = 'https://play.google.com/store/apps/details?id=com.wireguard.android&pli=1';
         this._instructionXRayLink = 'https://telegra.ph/Kak-podklyuchit-VPN-cherez-QR-CODE-12-22';
     }
@@ -656,7 +656,7 @@ class UserRegistration {
             if (!userAddResult) return false;
         }
         const userName = user.username ? user.username : user.user_tg_id;
-        const linkVpnConnect = `vless://${clientId}@88.210.3.140:29685?type=tcp&security=reality&pbk=MFisFtRSOCkuJReej162AmQjb8NaMxqKKkeHTdEHn1M&fp=chrome&sni=yahoo.com&sid=938d8fb82818&spx=%2F#${userName}`;
+        const linkVpnConnect = `vless://${clientId}@${process.env.XRAY_VLESS_HOST}?type=tcp&security=reality&pbk=${process.env.XRAY_PBK}&fp=chrome&sni=yahoo.com&sid=${process.env.XRAY_SID}&spx=%2F#${userName}`;
         const subscribe = `🔰 Подпсика на сервис VPN\n<blockquote>Оформлена на <b>${period}</b></blockquote>`;
         const instruction = `\nСсылка на инструкцию: ${this._instructionXRayLink}`;
         const qrVpnQrInstall = `QR-код для подключения`;
