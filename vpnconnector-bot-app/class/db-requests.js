@@ -1,5 +1,5 @@
-const mysql = require('mysql2/promise');
 require('dotenv').config();
+const mysql = require('mysql2/promise');
 
 class DbRequests {
     constructor() {
@@ -9,6 +9,215 @@ class DbRequests {
             password: process.env.MYSQL_PASSWORD,
             database: process.env.MYSQL_DATABASE,
         });
+    }
+
+    async addLead(referralUserId, leadUserId, utm) {
+        try {
+            const result = await this._db.query(
+                `INSERT INTO list_referral_leads (referral_user_id, lead_user_id, referral_utm, create_at)
+                 SELECT ?, ?, ?, NOW()
+                 WHERE NOT EXISTS (SELECT 1 FROM list_referral_leads WHERE lead_user_id = ?)`,
+                [
+                    referralUserId, leadUserId, utm,
+                    leadUserId
+                ]
+            );
+
+            return result[0].insertId ?? false;
+        } catch (error) {
+            console.error('Error list_referral_leads', error);
+        }
+    }
+
+    async getLeadByUserId(userId) {
+        try {
+            const [rows] = await this._db.query(`
+                SELECT 
+                    lrl.*,
+                    u.user_tg_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username,
+                    u.phone,
+                    referral_user.user_tg_id AS referral_user_tg_id,
+                    referral_user.first_name AS referral_first_name,
+                    referral_user.last_name AS referral_last_name,
+                    referral_user.username AS referral_username,
+                    referral_user.phone AS referral_phone
+                FROM list_referral_leads lrl
+                LEFT JOIN users u ON lrl.lead_user_id = u.id
+                LEFT JOIN users referral_user ON lrl.referral_user_id = referral_user.id
+                WHERE lrl.lead_user_id = ? LIMIT 1;
+            `, [userId]);
+
+            if (rows.length == 1) {
+                return rows[0];
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    async getReferralLinkByUtm(utm) {
+        try {
+            const [rows] = await this._db.query(`
+                SELECT 
+                    l.*,
+                    u.user_tg_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username,
+                    u.phone
+                FROM list_referral_links l
+                LEFT JOIN users u ON l.user_id = u.id
+                WHERE utm = ? LIMIT 1;
+            `, [utm]);
+
+            if (rows.length == 1) {
+                return rows[0];
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    async getReferralLinkByReferralUserId(userId) {
+        try {
+            const [rows] = await this._db.query(`
+                SELECT 
+                    l.*,
+                    u.user_tg_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username,
+                    u.phone
+                FROM list_referral_links l
+                LEFT JOIN users u ON l.user_id = u.id
+                WHERE user_id = ? LIMIT 1;
+            `, [userId]);
+
+            if (rows.length == 1) {
+                return rows[0];
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    async updateOrInsertListReferralLinks(data = null) {
+        try {
+            if (!data) return;
+
+            let result = await this._db.query(
+                `UPDATE list_referral_links
+                 SET link = ?, utm = ?
+                 WHERE user_id = ?`,
+                [
+                    data.link, data.utm,
+                    data.user_id
+                ]
+            );
+
+            if (result[0].affectedRows === 0) {
+                result = await this._db.query(
+                    `INSERT INTO list_referral_links (user_id, link, utm)
+                 SELECT ?, ?, ?
+                 WHERE NOT EXISTS (SELECT 1 FROM list_referral_links WHERE user_id = ?)`,
+                    [
+                        data.user_id, data.link, data.utm,
+                        data.user_id
+                    ]
+                );
+
+                return result[0].insertId;
+            }
+
+            return;
+        } catch (error) {
+            console.error('Error updating or inserting list_referral_links:', error);
+        }
+    }
+
+    async getTransactionsWithReferralForAdmin() {
+        try {
+            const [rows] = await this._db.query(`
+                SELECT 
+                    t.*, 
+                    s.raw, 
+                    u.user_tg_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username,
+                    u.phone,
+                    lrl.lead_user_id,
+                    referral_user.user_tg_id AS referral_user_tg_id,
+                    referral_user.first_name AS referral_first_name,
+                    referral_user.last_name AS referral_last_name,
+                    referral_user.username AS referral_username,
+                    referral_user.phone AS referral_phone,
+                    lrl.referral_utm,
+                    lrl.referral_user_id,
+                    lrl.create_at AS referral_utm_create_at
+                FROM transactions t
+                JOIN list_referral_leads lrl ON t.user_id = lrl.lead_user_id
+                JOIN users u ON t.user_id = u.id
+                JOIN users referral_user ON lrl.referral_user_id = referral_user.id
+                JOIN service s ON t.service_id = s.id
+                WHERE DATE(lrl.create_at) <= DATE(t.create_at);
+            `, [this._botTgId]);
+
+            if (rows.length > 0) {
+                return rows;
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    async getTransactionsWithReferralByUserId(userId) {
+        try {
+            const [rows] = await this._db.query(`
+                SELECT 
+                    t.*, 
+                    s.raw, 
+                    u.user_tg_id,
+                    u.first_name,
+                    u.last_name,
+                    u.username,
+                    u.phone,
+                    lrl.lead_user_id,
+                    lrl.referral_utm,
+                    lrl.referral_user_id,
+                    lrl.create_at AS referral_utm_create_at
+                FROM transactions t
+                JOIN list_referral_leads lrl ON t.user_id = lrl.lead_user_id
+                JOIN users u ON t.user_id = u.id
+                JOIN service s ON t.service_id = s.id
+                WHERE lrl.referral_user_id = ?
+                AND DATE(lrl.create_at) <= DATE(t.create_at);
+            `, [this._botTgId, userId]);
+
+            if (rows.length > 0) {
+                return rows;
+            }
+
+            return false;
+
+        } catch (error) {
+            console.error('Error:', error);
+        }
     }
 
     async updateOrInsertUser(user) {

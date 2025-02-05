@@ -60,6 +60,31 @@ class UserRegistration {
             await this._sendMessages.sendMessageAboutService(serviceItem, ctx);
         }
 
+        if (ctx.from.id == process.env.BOT_OWNER_ID) return;
+
+        const query = ctx.message.text;
+        const [_, textUtm] = query.split(' ');
+        const validUtm = textUtm && /^[a-zA-Z0-9_]+$/.test(textUtm) ? textUtm.trim() : null;
+        if (validUtm) {
+            const link = await this._dbRequests.getReferralLinkByUtm(validUtm);
+            if (link) {
+                const userLead = await this._dbRequests.getUserByUserTgId(ctx.from.id);
+                const addLead = await this._dbRequests.addLead(link.user_id, userLead.id, validUtm);
+                if (!addLead) return;
+                let notification = `🔗 <b>Зарегистрирован новый лид</b>`;
+                notification += `\n\n<blockquote>`;
+                notification += `<b>Лид:</b>\nТГ ID: <b>${ctx.from.id}</b>\nUsername: <b>@${ctx.from.username ?? ''}</b>\nИмя: <b>${ctx.from.first_name}</b>\nФамилия: <b>${ctx.from.last_name ?? ''}</b>`;
+                notification += `\n\n<b>Реферал:</b>\nТГ ID: <b>${link.user_tg_id}</b>\nUsername: <b>@${link.username ?? ''}</b>\nИмя: <b>${link.first_name}</b>\nФамилия: <b>${link.last_name ?? ''}</b>`;
+                notification += `\n\nБот: ${process.env.BOT_LINK}`;
+                notification += `</blockquote>`
+                await this._bot.telegram.sendMessage(
+                    process.env.BOT_OWNER_ID,
+                    notification,
+                    { parse_mode: 'HTML' }
+                );
+            }
+        }
+
         return;
     }
 
@@ -437,6 +462,10 @@ class UserRegistration {
                 `✅ <b>Подтверждение доставлено!</b>`,
                 { parse_mode: 'HTML' }
             );
+
+            await this._sendMessages.sendReferralNotificationsToAdministrator({
+                transaction: dataTransaction
+            });
         } else {
             dataTransaction.status = 0;
             await this._dbRequests.updateOrInsertTransactions(dataTransaction);

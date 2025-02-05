@@ -1,6 +1,6 @@
+require('dotenv').config();
 const { Markup } = require('telegraf');
 const axios = require('axios');
-require('dotenv').config();
 
 class SendMessages {
     constructor(bot, dbRequests, attributes) {
@@ -9,6 +9,28 @@ class SendMessages {
         this._attributes = attributes;
         this._axios = axios;
         this._filePath = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}`;
+    }
+
+    async sendReferralNotificationsToAdministrator(options = {}) {
+        const userLead = await this._dbRequests.getLeadByUserId(options.transaction.user_id);
+        if (!userLead) return;
+        const newBillingByUser = await this._dbRequests.getBillingByServiceIdAndUserTgId(options.transaction.service_id, userLead.user_tg_id);
+        let phone = await this._attributes.formatPhoneNumber(userLead.phone);
+        phone = phone
+            ? `<a href="tel:${phone}">${phone}</a>`
+            : userLead.phone ?? '';
+        let notification = `⭐️ <b>Лид завершил оплату за подписку на VPN</b>`;
+        notification += `\n\nПодписка действительна до <b>${newBillingByUser.billing_date_to}</b>`;
+        notification += `\n\n<blockquote>`;
+        notification += `<b>Лид:</b>\nТГ ID: <b>${userLead.user_tg_id}</b>\nUsername: <b>@${userLead.username ?? ''}</b>\nИмя: <b>${userLead.first_name}</b>\nФамилия: <b>${userLead.last_name ?? ''}</b>\nТелефон: <b>${phone}</b>`;
+        notification += `\n\n<b>Реферал:</b>\nТГ ID: <b>${userLead.referral_user_tg_id}</b>\nUsername: <b>@${userLead.referral_username ?? ''}</b>\nИмя: <b>${userLead.referral_first_name}</b>\nФамилия: <b>${userLead.referral_last_name ?? ''}</b>`;
+        notification += `\n\nБот: ${process.env.BOT_LINK}`;
+        notification += `\n</blockquote>`;
+        await this._bot.telegram.sendMessage(
+            process.env.NOTIFICATION_CHAT_ID && process.env.NOTIFICATION_CHAT_ID != '' ? process.env.NOTIFICATION_CHAT_ID : process.env.BOT_OWNER_ID,
+            notification,
+            { parse_mode: 'HTML' }
+        );
     }
 
     async sendNotificationsAdministrators(ctx) {

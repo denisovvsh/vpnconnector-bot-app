@@ -6,6 +6,7 @@ services:
     entrypoint: [ "/entrypoint.sh" ]
     volumes:
       - ./vpnconnector-bot-app:/usr/src/app
+      - ./reports:/usr/src/app/reports
       - ./entrypoint.sh:/entrypoint.sh
     working_dir: /usr/src/app
     env_file:

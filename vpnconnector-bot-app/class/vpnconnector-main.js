@@ -9,6 +9,8 @@ const { CallbackQuery } = require('./callback-query');
 const { Steps } = require('./steps');
 const { CronAssistant } = require('./cron-assistant');
 const { XRay } = require('./x-ray');
+const { Referral } = require('./referral');
+const { Reports } = require('./reports');
 
 class VpnconnectorMain {
     constructor(bot) {
@@ -19,6 +21,8 @@ class VpnconnectorMain {
         const dbRequests = new DbRequests(process.env.BOT_ID);
         const attributes = new Attributes(this._bot);
         const xRay = new XRay();
+        const referral = new Referral(this._bot, dbRequests);
+        const reports = new Reports(dbRequests);
         const sendMessages = new SendMessages(this._bot, dbRequests, attributes);
         const userRegistration = new UserRegistration(this._bot, dbRequests, sendMessages, xRay, attributes);
         const settingsService = new SettingsService(this._bot, dbRequests, sendMessages);
@@ -59,8 +63,7 @@ class VpnconnectorMain {
             if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
             ctx.session = null;
             userRegistration.signUp(ctx);
-            console.log('BotInfo:');
-            console.log(ctx.botInfo);
+            console.log('BotInfo:', ctx.botInfo);
             return next();
         });
 
@@ -69,6 +72,50 @@ class VpnconnectorMain {
             ctx.session = null;
             userRegistration.signUp(ctx);
             return;
+        });
+
+        this._bot.command('referral', async (ctx, next) => {
+            if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return next();
+            await referral.getReferralLink(ctx);
+            return;
+        });
+
+        this._bot.command('users', async (ctx) => {
+            if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return;
+            if (ctx.from.id != process.env.BOT_OWNER_ID) {
+                return await ctx.reply('🟠 У вас нет прав для получения отчета!');
+            }
+
+            try {
+                const filePath = await reports.generateUsers(ctx);
+                if (!filePath) {
+                    return await ctx.reply('🟠 Записей не обнаружено!');
+                } else {
+                    return await ctx.replyWithDocument({ source: filePath });
+                }
+            } catch (error) {
+                console.error('Error generating report:', error);
+            }
+        });
+
+        this._bot.command('report', async (ctx) => {
+            if (ctx.from.id != ctx.chat.id || ctx.from.is_bot) return;
+            try {
+                let filePath = null;
+                if (ctx.from.id == process.env.BOT_OWNER_ID) {
+                    filePath = await reports.generateListReferralLeadsByAdmin(ctx);
+                } else {
+                    filePath = await reports.generateListReferralLeadsByReferal(ctx);
+                }
+
+                if (!filePath) {
+                    return await ctx.reply('🟠 Записей не обнаружено!');
+                } else {
+                    return await ctx.replyWithDocument({ source: filePath });
+                }
+            } catch (error) {
+                console.error('Error generating report:', error);
+            }
         });
 
         this._bot.on('contact', async (ctx, next) => {
