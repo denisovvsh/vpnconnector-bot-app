@@ -12,6 +12,19 @@ services:
     env_file:
       - ./vpnconnector-bot-app/.env
 
+  silkroutenet-bot:
+    image: node:20
+    restart: always
+    container_name: silkroutenet-bot-app
+    entrypoint: [ "/entrypoint.sh" ]
+    volumes:
+      - ./silkroutenet-bot-app:/usr/src/app
+      - ./reports:/usr/src/app/reports
+      - ./entrypoint.sh:/entrypoint.sh
+    working_dir: /usr/src/app
+    env_file:
+      - ./silkroutenet-bot-app/.env
+
   mysql-server:
     image: mysql:8.0.19
     restart: always
