@@ -145,7 +145,7 @@ class VpnconnectorMain {
             return next();
         });
 
-        const botJob = new CronJob('0 */8 * * *', async () => {
+        const botJob = new CronJob('0 */6 * * *', async () => {
             cronAssistant.kickXrayUser();
             cronAssistant.checkUserSubscribe();
             console.log('Проверка актуальности подписки VPN', await attributes.getDateWithMonthsOffset());

@@ -24,15 +24,17 @@ class CronAssistant {
                         )
                     ]
                 ];
-                await this._bot.telegram.sendMessage(
-                    billingRow.user_tg_id,
-                    `🟠 Заканчивается подписка на VPN`
-                    + `\n<blockquote>Действительна до <b>${billingRow.billing_date_to}</b></blockquote>`,
-                    {
-                        parse_mode: 'HTML',
-                        ...Markup.inlineKeyboard(keyboard)
-                    }
-                );
+                try {
+                    await this._bot.telegram.sendMessage(
+                        billingRow.user_tg_id,
+                        `🟠 Заканчивается подписка на VPN`
+                        + `\n<blockquote>Действительна до <b>${billingRow.billing_date_to}</b></blockquote>`,
+                        {
+                            parse_mode: 'HTML',
+                            ...Markup.inlineKeyboard(keyboard)
+                        }
+                    );
+                } catch (error) { }
             }
         } catch (error) {
             console.error('Ошибка при проверке подписки пользователей на VPN:', error);
@@ -76,21 +78,23 @@ class CronAssistant {
                             date_to: billingRow.date_to
                         };
                         await this._dbRequests.updateOrInsertBilling(dataBilling);
-
-                        await this._bot.telegram.sendMessage(
-                            billingRow.user_tg_id,
-                            `🟠 Ваш аккаунт удален с сервера VPN`
-                            + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`
-                            + `\n<blockquote><b>Чтобы возобновить подписку на VPN нажмите /my_vpn</b></blockquote>`,
-                            { parse_mode: 'HTML' }
-                        );
-
-                        await this._bot.telegram.sendMessage(
-                            notificationChatId,
-                            `🟠 Пользователь @${billingRow.username} удален с сервера VPN`
-                            + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`,
-                            { parse_mode: 'HTML' }
-                        );
+                        try {
+                            await this._bot.telegram.sendMessage(
+                                billingRow.user_tg_id,
+                                `🟠 Ваш аккаунт удален с сервера VPN`
+                                + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`
+                                + `\n<blockquote><b>Чтобы возобновить подписку на VPN нажмите /my_vpn</b></blockquote>`,
+                                { parse_mode: 'HTML' }
+                            );
+                        } catch (error) { }
+                        try {
+                            await this._bot.telegram.sendMessage(
+                                notificationChatId,
+                                `🟠 Пользователь @${billingRow.username} удален с сервера VPN`
+                                + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`,
+                                { parse_mode: 'HTML' }
+                            );
+                        } catch (error) { }
                     } catch (error) {
                         console.error('Ошибка при удалении VPN аккаунта:', error);
                     }
@@ -132,21 +136,23 @@ class CronAssistant {
                             date_to: billingRow.date_to
                         };
                         await this._dbRequests.updateOrInsertBilling(dataBilling);
-
-                        await this._bot.telegram.sendMessage(
-                            billingRow.user_tg_id,
-                            `🟠 Ваш аккаунт удален с сервера VPN`
-                            + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`
-                            + `\n<blockquote><b>Чтобы возобновить подписку на VPN нажмите /my_vpn</b></blockquote>`,
-                            { parse_mode: 'HTML' }
-                        );
-
-                        await this._bot.telegram.sendMessage(
-                            notificationChatId,
-                            `🟠 Пользователь @${billingRow.username} удален с сервера VPN`
-                            + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`,
-                            { parse_mode: 'HTML' }
-                        );
+                        try {
+                            await this._bot.telegram.sendMessage(
+                                billingRow.user_tg_id,
+                                `🟠 Ваш аккаунт удален с сервера VPN`
+                                + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`
+                                + `\n<blockquote><b>Чтобы возобновить подписку на VPN нажмите /my_vpn</b></blockquote>`,
+                                { parse_mode: 'HTML' }
+                            );
+                        } catch (error) { }
+                        try {
+                            await this._bot.telegram.sendMessage(
+                                notificationChatId,
+                                `🟠 Пользователь @${billingRow.username} удален с сервера VPN`
+                                + `\n<blockquote><b>Закончилась подписка!</b></blockquote>`,
+                                { parse_mode: 'HTML' }
+                            );
+                        } catch (error) { }
                     } catch (error) {
                         console.error('Ошибка при удалении VPN аккаунта:', error);
                     }
