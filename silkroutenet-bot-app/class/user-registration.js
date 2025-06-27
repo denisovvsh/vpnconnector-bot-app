@@ -315,7 +315,8 @@ class UserRegistration {
                 message += `<b>Банк получателя:</b> ${ctx.session.bank_name}\n`;
                 message += `<b>Имя получателя:</b> ${ctx.session.receiver_name}\n`;
             }
-            message += `<blockquote>☝️<b>После оплаты отправьте скриншот квитанции.</b></blockquote>`;
+            message += `<blockquote>⚠️<b>Внимание! Сессия оплаты длится 30 минут.</b>\nПосле истечения сесси необходимо повторно выбрать тариф.</blockquote>`;
+            message += `<blockquote>❗️<b>После оплаты отправьте скриншот квитанции.</b></blockquote>`;
 
             await ctx.reply(message, { parse_mode: 'HTML' });
             await ctx.reply(
@@ -328,11 +329,11 @@ class UserRegistration {
 
             let message = `<b>Оплата подписки</b>\n`;
             message = `Оплата сервиса VPN\nСрок подписки: <b>${period}</b>\n\n`;
-            message += `🔵 <b>Оплатите по реквизитам карты:</b>\n\n`;
+            message += `🔵 <b>Оплатите по реквизитам:</b>\n\n`;
             message += `<b>Сумма к оплате:</b> ${ctx.session.price} ${ctx.session.currency}\n`;
             message += `<b>Адрес крипто кошелька получателя:</b> <pre>${ctx.session.crypto_wallet}</pre> (нажмите на адрес, чтобы скопировать)\n`;
             message += `<b>Идентификатор сети:</b> ${ctx.session.crypto_network}\n`;
-            message += `<blockquote>☝️<b>После оплаты нажмите кнопку подтвердить.</b></blockquote>`;
+            message += `<blockquote>❗️<b>После оплаты нажмите кнопку подтвердить.</b></blockquote>`;
 
             await ctx.reply(
                 message,
