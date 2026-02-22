@@ -31,7 +31,7 @@ services:
     container_name: mysql-server
     env_file:
       - ./.env
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=64M --performance-schema=OFF
     volumes:
       - mysql-data:/var/lib/mysql
 
